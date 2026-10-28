@@ -1,0 +1,355 @@
+# Running ExoMiner Pipeline
+
+After pulling the Podman image, you are ready to run the pipeline by running the script 
+[run_podman_application.sh](/exominer_pipeline/run_podman_application.sh) in your terminal! The pipeline is fully 
+parallelizable and can make use of multi-CPU 
+cores machines. The TIC IDs are split evenly across a set of jobs defined by the user, meaning that all TCEs for a given
+TIC ID and sector run are processed in the same job. 
+
+## Command-line arguments
+Before you run the pipeline, you have to set the filepaths to the command-line arguments. Run 
+```podman run ghcr.io/nasa/exominer --help``` for a detailed description on these inputs. 
+You can modify the command ```podman run``` to suit your use case (e.g., give TIC IDs as a comma-separated list instead 
+of a CSV file).
+
+## Running the Podman container application
+
+The contents of [run_podman_application.sh](/exominer_pipeline/run_podman_application.sh) are displayed below. To run 
+the podman image for the ExoMiner Pipeline, simply set the arguments for your use case in the shell script file and run 
+in your terminal `/path/to/run_podman_application.sh`. In this example, the ExoMiner Pipeline will be run for the TIC 
+IDs and sector runs found in the CSV file that the variable `tics_tbl_fp` points to in your system (for information on the structure of the input CSV file, see section [TIC IDs input](#tic-ids-input)). The pipeline will 
+use TESS SPOC `2-min` data (see `data_collection_mode` variable) and `1` process will be used (no parallelization). The 
+TIC IDs are split across `2` jobs. The results will be saved into the filepath that `exominer_pipeline_run_dir` points 
+to. Furthermore, because `download_spoc_data_products` was set to `true`, a CSV file with the MAST URLs for the TESS 
+SPOC DV reports generated for the TCEs of the queried TIC IDs will be generated. Since `external_data_repository` was 
+set to `null`, the pipeline will download the light curve FITS and DV XML files for the queried TICs from the MAST. If a path is provided instead of `null`, then that path should contain the light curve TESS FITS files and the TESS SPOC DV XML files for the corresponding TIC IDs and sector runs provided in the input table.
+Similarly, the source for the stellar parameters and Gaia RUWE value - `stellar_parameters_source` and `ruwe_source`-  
+were set to `ticv8` and `gaiadr2`, respectively. This means that the pipeline will query TIC-8 and Gaia DR2 to extract 
+these parameters for the queried, but the user can also provide their own source catalogs by setting these variables to 
+the path of the intended CSV tables. More information on using local source catalogs in [here](#local-source-catalogs). Finally, by setting `exominer_model` one can choose among different ExoMiner models to perform inference (see [models section](#exominer-models)). 
+
+```bash
+#!/bin/bash
+
+### Run ExoMiner Pipeline by running a container of a Podman image
+
+### default values ## 
+
+# directory where the inputs for the ExoMiner Pipeline are stored
+inputs_dir="/path/to/inputs"
+# file path to the TICs table
+tics_tbl_fn="tics_tbl.csv"
+tics_tbl_fp=$inputs_dir/$tics_tbl_fn
+# name of the run
+exominer_pipeline_run=run_name
+# directory where the ExoMiner Pipeline run is saved
+exominer_pipeline_run_dir=/path/to/run/$exominer_pipeline_run
+# data collection mode: either 2min or ffi
+data_collection_mode="2min"
+# number of processes
+num_processes=1
+# number of jobs to split the TIC IDs
+num_jobs=1
+# set to "true" or "false". If "true", it will create a CSV file with URLs to the SPOC DV reports for each TCE in the
+# queried TICs
+download_spoc_data_products=true
+# path to a directory containing the light curve FITS files and DV XML files for the TIC IDs and sector runs that you
+# want to query; set to "null" otherwise
+external_data_repository=null
+# define source of stellar parameters for TICs. If set to 'ticv8', TIC-8 is queried; if set to 'tess-spoc', it uses the
+# parameters stored in the TICs DV XML files; if set to a filepath that points to an external catalog of stellar
+# parameters, it will use those values.
+stellar_parameters_source=ticv8
+# define source of Gaia RUWE for TICs. If set to 'gaiadr2', Gaia DR2 is queried; if set to 'unavailable', it assumes the
+# values are missing; if set to a filepath that points to an external catalog of RUWE parameters, it will use those
+# values.
+ruwe_source=gaiadr2
+# which ExoMiner model to use for inference. Choose between "exominer++_single", "exominer++_cviter-mean-ensemble", and "exominer++_cv-super-mean-ensemble".
+# or provide a filepath to a custom ExoMiner model (in Keras .keras format)
+exominer_model="exominer++_single"
+
+# Help message
+show_help() {
+    echo "Usage: $0 [options]"
+    echo ""
+    echo "Options:"
+    echo "  --tics_tbl_fp FILE                   TIC IDs table filepath"
+    echo "  --exominer_pipeline_run_dir DIR      Directory to store pipeline run output"
+    echo "  --data_collection_mode MODE          Data collection mode (2min or ffi)"
+    echo "  --num_processes N                    Number of processes"
+    echo "  --num_jobs N                         Number of jobs"
+    echo "  --download_spoc_data_products BOOL   Whether to download TESS SPOC DV reports for the detected TCEs: true or false"
+    echo "  --external_data_repository DIR       Path to external data repository containing light curve FITS files and DV XML files for the TIC IDs in the TICs table"
+    echo "  --stellar_parameters_source SOURCE   Source for TICs stellar parameters"
+    echo "  --ruwe_source SOURCE                 Source for TICs Gaia RUWE parameters"
+    echo "  --exominer_model MODEL               ExoMiner model to use for inference"
+    echo "  --help                               Show ExoMiner Pipeline help"
+    echo ""
+    exit 
+}
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --tics_tbl_fp) tics_tbl_fp="$2"; shift 2 ;;
+        --exominer_pipeline_run_dir) exominer_pipeline_run_dir="$2"; shift 2 ;;
+        --data_collection_mode) data_collection_mode="$2"; shift 2 ;;
+        --num_processes) num_processes="$2"; shift 2 ;;
+        --num_jobs) num_jobs="$2"; shift 2 ;;
+        --download_spoc_data_products) download_spoc_data_products="$2"; shift 2 ;;
+        --external_data_repository) external_data_repository="$2"; shift 2 ;;
+        --stellar_parameters_source) stellar_parameters_source="$2"; shift 2 ;;
+        --ruwe_source) ruwe_source="$2"; shift 2 ;;
+        --exominer_model) exominer_model="$2"; shift 2 ;;
+        --help)
+            show_help
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            show_help
+            ;;
+    esac
+done
+
+mkdir -p $exominer_pipeline_run_dir
+
+# Save parameters to a file inside the run directory
+echo "Saving run parameters to $exominer_pipeline_run_dir/run_parameters.txt"
+
+params_file="$exominer_pipeline_run_dir/run_parameters.txt"
+
+cat <<EOF > "$params_file"
+TICs table file: $tics_tbl_fp
+ExoMiner Pipeline run directory: $exominer_pipeline_run_dir
+Data collection mode: $data_collection_mode
+Number of processes: $num_processes
+Number of jobs: $num_jobs
+Download SPOC data products: $download_spoc_data_products
+External data repository: $external_data_repository
+Stellar parameters source: $stellar_parameters_source
+RUWE source: $ruwe_source
+ExoMiner model: $exominer_model
+Image revision: $(podman inspect ghcr.io/nasa/exominer:latest --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')
+EOF
+
+# set up volume mounts
+volume_mounts="-v $tics_tbl_fp:/tics_tbl.csv:Z -v $exominer_pipeline_run_dir:/outputs:Z"
+
+# conditionally add external_data_repository mount
+if [ "$external_data_repository" != "null" ]; then
+  volume_mounts="$volume_mounts -v $external_data_repository:/external_data_repository:Z"
+  external_data_repository_arg="--external_data_repository=/external_data_repository"
+else
+  external_data_repository_arg=""
+fi
+
+# add mount to external TICs stellar parameters catalog if filepath provided
+if [ -f "$stellar_parameters_source" ]; then
+    volume_mounts="$volume_mounts -v $stellar_parameters_source:/tics_stellar_parameters.csv:Z"
+    stellar_parameters_source_arg=/tics_stellar_parameters.csv
+else
+    stellar_parameters_source_arg=$stellar_parameters_source
+fi
+
+# add mount to external TICs RUWE catalog if filepath provided
+if [ -f "$ruwe_source" ]; then
+    volume_mounts="$volume_mounts -v $ruwe_source:/tics_ruwe.csv:Z"
+    ruwe_source_arg=/tics_ruwe.csv
+else
+    ruwe_source_arg=$ruwe_source
+fi
+
+# handle custom model path
+if [[ "$exominer_model" != "exominer++_single" && "$exominer_model" != "exominer++_cviter-mean-ensemble" && "$exominer_model" != "exominer++_cv-super-mean-ensemble" ]]; then
+    if [[ -f "$exominer_model" ]]; then
+        volume_mounts="$volume_mounts -v $exominer_model:/custom_model.keras:Z"
+        exominer_model_arg="/custom_model.keras"
+    else
+        echo "Error: Provided exominer_model path '$exominer_model' does not exist or is not a file."
+        exit 1
+    fi
+else
+    exominer_model_arg="$exominer_model"
+fi
+
+echo "Running ExoMiner Pipeline with the following parameters:"
+echo "TICs table file: $tics_tbl_fp"
+echo "ExoMiner Pipeline run directory: $exominer_pipeline_run_dir"
+
+podman run \
+  ${volume_mounts} \
+  ghcr.io/nasa/exominer:arm64 \
+  --tic_ids_fp=/tics_tbl.csv \
+  --output_dir=/outputs \
+  --data_collection_mode=$data_collection_mode \
+  --num_processes=$num_processes \
+  --num_jobs=$num_jobs \
+  --download_spoc_data_products=$download_spoc_data_products \
+  --stellar_parameters_source=$stellar_parameters_source_arg \
+  --ruwe_source=$ruwe_source_arg \
+  --exominer_model=$exominer_model_arg \
+  $external_data_repository_arg \
+
+echo "Finished ExoMiner Pipeline run $exominer_pipeline_run_dir."
+
+```
+
+## TIC IDs input
+
+You can provide a set of TIC IDs by creating a CSV file with the columns "tic_id" and "sector_run" and set the variable 
+[tics_tbl_fp](#running-the-podman-container-application) to its path.
+The following example showcases a CSV file that can be used with the pipeline to generate results for the TCEs of TIC 167526485 in single-sector run S6 and multi-sector run S1-39.
+
+Example: CSV file
+
+```csv
+tic_id, sector_run
+167526485, 6-6
+167526485, 1-39
+```
+
+## Outputs
+
+![Pipeline Demo - Show results of run](/others/media/3_check_exominer_pipeline_run_results_edited.gif)
+
+The following diagram represents the hierarchy of the data output for a run of the ExoMiner Pipeline. In this example, 
+the pipeline was run using one single job and the TESS SPOC TCEs were queried for the 2-min data. The structure was 
+ordered from most recent file/folder to the oldest.
+
+```code
+exominer_pipeline_run_name
+├── run_main.log
+├── dv_reports_all_jobs.csv [optional]
+├── predictions_outputs.csv
+├── pipeline_run_config.yaml
+├── tics_tbl.csv
+├── run_parameters.txt
+└── job_0
+    ├── run_0.log
+    ├── dv_reports.csv [optional]
+    ├── predictions
+    ├── tfrecord_data_diffimg_normalized
+    ├── tfrecord_data_diffimg
+    ├── diff_img_preprocessed
+    ├── diff_img_extracted
+    ├── tfrecord_data
+    ├── tce_table
+    ├── manifest_requested_products_2min.csv
+    ├── requested_products_2min.csv
+    └── mastDownload
+```
+
+**Content description**
+
+- `run_main.log`: main log file for the run.
+- `dv_reports_all_jobs.csv` (optional): if the flag `--download_spoc_data_products` is set to `"true"`, then a CSV file will be created that contained, for each 
+       TCE in all the queried TICs, the URLs for the TESS SPOC DV data reports found at the MAST.
+- `predictions_outputs.csv`: if the run is completed, a CSV file is generated containing the predictions scores produced by the ExoMiner model for the set of TCEs associated with the TIC IDs and sector runs defined in `tics_tbl.csv`. If multiple jobs are completed, it aggregates the predictions generated across them.
+- `pipeline_run_config.yaml`: YAML file that stores some of the run parameters internally used in the Podman container.
+- `tics_tbl.csv`: CSV file containing the queried TIC IDs and sector runs.
+- `run_parameters.txt`: text file containing information about the parameters used for the run, including the version of the pipeline.
+- `job_{job_id}`: directory containing the results for the TIC IDs and sector runs assigned to the job.
+    - `run_{job_id}`: log file for the job.
+    - `dv_reports.csv` (optional): if the flag `--download_spoc_data_products` is set to `"true"`, then a CSV file will be created that contained, for each 
+       TCE in the queried TICs for this job, the URLs for the TESS SPOC DV data reports found at the MAST.
+    - `predictions`: contains the CSV file, `ranked_predictions_predictset.csv`, with the predictions generated for the assigned TIC IDs and sector runs.
+    - `tfrecord_data_diffimg_normalized`: TFRecord dataset with light curve and difference image data for the TCEs. Features have been normalized. It should include a TFRecord file name `shard-tess_diffimg_TESS_0` that contains the normalized data.
+    - `tfrecord_data_diffimg`: TFRecord dataset with light curve and difference image data for the TCEs. It should include a TFRecord file name `shard-tess_diffimg_TESS_0` that contains the preprocessed light curve data and the difference image data.
+    - `diff_img_preprocessed`: includes the preprocessed difference image data for the queried TCEs. It should include a file, `tess_diffimg_TESS/diffimg_preprocess.npy`, that contains the preprocessed difference image data for the TCEs.
+    - `diff_img_extracted`: includes the difference image data for the TCEs extracted from the DV XML files for the assigned TIC IDs and sector runs. It should include a file named `tess_diffimg_TESS.npy` after the difference image has been extracted from the DV XML files.
+    - `tfrecord_data`: TFRecord dataset with light curve data for the TCEs. The directory should contain one TFRecord file with the filename `shard-00000-of-00001-node-{node_id}`, and a `shards_tbl.csv` that provided information on the content of the file. The directory `exclusion_logs` will show one log file per TCE for those TCEs whose light curve data preprocessing found an error or warning. The directory `preprocessing_logs` contains a log file with information related to the preprocessing of the data.
+    - `tce_table`: contains data used to create a table of TESS SPOC TCEs detected for the assigned TIC IDs and sector runs. The final preprocessed table is `tess-spoc-dv_tces_0_processed.csv`. Additional results include querying Gaia DR2 for RUWE values, and TICv8 for updated stellar parameters.
+    - `manifest_requested_products_2min.csv`: CSV file that includes information on the location of the downloaded files from the MAST and whether the download was successful. The "2min" suffix means that 2-min data was downloaded.
+    - `requested_products_2min.csv`: CSV file that shows all data products that are requested for download (light curves FITS files and DV XML files) from the MAST.
+    - `mastDownload`: includes the light curve FITS files and DV XML files downloaded from the MAST for the assigned TIC IDs and sector runs. If the download is successful, each target should have a directory with a DV XML file related to the corresponding sector run, and a set of one or more folders related to the sectors the target was observed, each one containing the corresponding light curve FITS file.
+
+## Local source catalogs
+
+Instead of querying external repositories such as TIC-8 and Gaia DR2 to get the set of stellar parameters and Gaia RUWE 
+for each queried TIC, the user can also provide their own source catalogs as CSV files. These catalogs should have the 
+following format:
+
+- TICs stellar parameters catalog
+```csv
+target_id, tic_steff, tic_steff_err, tic_smass, tic_smass_err, tic_smet, tic_smet_err, tic_sradius, tic_sradius_err, tic_sdens, tic_sdens_err, tic_slogg, tic_slogg_err, tic_ra, tic_dec, kic_id, gaia_id, tic_tmag, tic_tmag_err
+
+167526485, 5778, 0, 1, 0, 0, 0, 1, 1, ... 
+```
+
+with the following mapping: `tic_steff` stellar effective temperature (K), `tic_smass` stellar mass (Solar mass), 
+`tic_smet` stellar metallicity (dex), `tic_sradius` stellar radius (Solar Radii), tic_sdens is stellar density (g/cm3), 
+`tic_slogg` stellar gravity (log10(cm/s)), `ra` right ascension (deg), `deg` declination (deg),`kic_id` KIC ID, 
+`gaia_id` Gaia ID, `tic_tmag` TESS magnitude. 
+
+KIC ID, Gaia ID, and parameter uncertainties (i.e., "_err") are not used and can be missing while `ra` and `dec` should 
+be available. All the remaining parameters can be missing, but it is encouraged that they are present - otherwise the 
+pipeline will replace those values automatically.
+
+- RUWE catalog
+```csv
+target_id, ruwe
+
+167526485, 1 
+```
+
+## ExoMiner Models
+
+Currently, the ExoMiner Pipeline supports the use of these models:
+- `exominer++_single` (~1M parameters): ExoMiner++ model that comes from the TESS+Kepler cross-validation (CV) experiment, more concretely model 0 in CV iteration 0.
+- `exominer++_cviter-mean-ensemble` (~10M parameters): ExoMiner++ model that comes from the TESS+Kepler CV experiment and corresponds to the mean ensemble of CV iteration 0.
+- `exominer++_cv-super-mean-ensemble` (~100M parameters):  ExoMiner++ model that comes from the TESS+Kepler CV experiment and corresponds to the "super mean ensemble" of the ensembles of all CV iterations.
+
+These three models are based in the ExoMiner++ architecture and were developed as part of the experiment for the [ExoMiner on TESS 2-min paper](https://doi.org/10.48550/arXiv.2502.09790). They reflect a tradeoff in generalization and robustness vs computational cost. On one side, the single model from a single CV iteration `exominer++_single` is lightweight and will produce faster inference, while `exominer++_cv-super-mean-ensemble` is recommended for those users that have 
+the computational resources to run a model that smooths out biases from individual CV iterations and tranining initializations. `exominer++_cviter-mean-ensemble` provides a balance between performance and complexity.
+
+You can also provide the filepath to a TensorFlow Keras custom model. This model needs to be compatible with TensorFlow 2.13 and must use the same features or at least a subset of them as its input. This means that the model should expect features that have the same names, dimensions, and data types as the ones used for the models shipped with the Podman application. See [exominer-features.md](exominer-features.md) for a comprehensive description of the features.
+
+## Running the pipeline without Podman
+
+If you do not want to use the Podman image, you can also run the ExoMiner Pipeline as a Python application. This method 
+requires an initial setup step:
+1. Clone the GitHub repository. 
+2. Install the required package dependencies. 
+
+You can get the required package dependencies by installing a package manager and environment 
+management system such as Conda, and then use it to build an environment with all the packages and Python modules 
+required to run the pipeline. Depending on the architecture of your system, you can use 
+[conda_env_exoplnt_dl_amd64.yml](../exominer_pipeline/conda_env_exoplnt_dl_amd64.yml) or 
+[conda_env_exoplnt_dl_arm64.yml](../exominer_pipeline/conda_env_exoplnt_dl_arm64.yml) to replicate a Conda environment 
+that can be used to run this pipeline. Run command `conda env create -f /path/to/conda_env.yml` to create the 
+environment, and then `conda activate exoplnt_dl` to activate it.
+
+After going through the setup, you can run the pipeline using the shell script 
+[run_pipeline.sh](../exominer_pipeline/run_pipeline.sh) that wraps around the Python script [run_pipeline.py](../exominer_pipeline/run_pipeline.py), or 
+simply run this Python script.
+- Running shell script (set variables accordingly):
+```bash
+/path/to/run_pipeline.sh \
+  --pipeline_python_script_fp "$PIPELINE_PYTHON_FP" \
+  --tics_tbl_fp "$INPUTS_DIR/$TICS_TBL_FN" \
+  --exominer_pipeline_run_dir "$RUN_DIR" \
+  --data_collection_mode "$DATA_COLLECTION_MODE" \
+  --num_processes "$NUM_PROCESSES" \
+  --num_jobs "$NUM_JOBS" \
+  --download_spoc_data_products "$DOWNLOAD_SPOC_DATA_PRODUCTS" \
+  --external_data_repository "$EXTERNAL_DATA_REPOSITORY" \
+  --stellar_parameters_source "ticv8" \
+  --ruwe_source "gaiadr2" \
+  --exominer_model "exominer++_single"
+```
+
+- Running Python script (set variables accordingly):
+```bash
+python /path/to/run_pipeline.py
+  --output_dir "/path/to/run_dir" \
+  --tic_ids_fp "/path/to/input_table.csv" \
+  --data_collection_mode "2min" \
+  --num_processes 1 \
+  --num_jobs 1 \
+  --download_spoc_data_products "false" \
+  --external_data_repository "null" \
+  --stellar_parameters_source "ticv8" \
+  --ruwe_source "gaiadr2" \
+  --exominer_model "exominer++_single"
+```

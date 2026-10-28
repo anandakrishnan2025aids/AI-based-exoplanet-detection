@@ -1,0 +1,26 @@
+# Python byte code
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environments
+.venv/
+env/
+venv/
+ENV/
+
+# Distribution / Packaging
+build/
+dist/
+*.egg-info/
+
+# Large Datasets and Temp Outputs
+data/training/*.csv
+*.log
+.DS_Store
+
+# IDE and OS files
+.vscode/
+.idea/
+*.swp

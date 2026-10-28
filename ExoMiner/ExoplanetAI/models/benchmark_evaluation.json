@@ -1,0 +1,137 @@
+{
+    "metadata": {
+        "evaluation_name": "Kepler DR25 exoTest Benchmark Evaluation",
+        "dataset_name": "exoTest.csv",
+        "dataset_source": "NASA Kepler Space Telescope Primary Mission Archive (Kaggle Kepler Exoplanet Search format)",
+        "evaluation_date": "2026-10-28",
+        "model_file": "models/exoplanet_model.pkl",
+        "model_type": "RandomForestClassifier",
+        "evaluation_type": "historical_diagnostic_measurement",
+        "evaluation_validity": "inconclusive_feature_mismatch",
+        "compatibility_status": "incompatible_feature_pipeline",
+        "is_fair_assessment": false,
+        "validity_notice": "Benchmark evaluation on exoTest.csv is inconclusive and potentially invalid: exoTest.csv contains zero-centered difference flux cadences, which were processed without normalization, resulting in out-of-distribution feature values that violate model input constraints. Metrics are preserved strictly as historical pipeline diagnostics.",
+        "verified_authentic": true,
+        "is_simulated_or_formula": false
+    },
+    "dataset_telemetry": {
+        "total_samples": 570,
+        "positive_samples": 5,
+        "negative_samples": 565,
+        "class_prevalence_pct": 0.88,
+        "cadences_per_target": 3197
+    },
+    "classification_metrics": {
+        "accuracy": 0.9912,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1_score": 0.0,
+        "roc_auc": 0.643,
+        "average_precision": 0.0174,
+        "positive_class": "1 (Exoplanet)",
+        "averaging_method": "binary (zero_division=0.0)"
+    },
+    "confusion_matrix": {
+        "matrix": [
+            [
+                565,
+                0
+            ],
+            [
+                5,
+                0
+            ]
+        ],
+        "true_negatives": 565,
+        "false_positives": 0,
+        "false_negatives": 5,
+        "true_positives": 0,
+        "labels": [
+            "Non-Exoplanet",
+            "Exoplanet"
+        ]
+    },
+    "roc_curve": {
+        "fpr": [
+            0.0,
+            0.15044,
+            0.15221,
+            0.16283,
+            0.22301,
+            0.78053,
+            0.80531,
+            0.82478,
+            0.87965,
+            1.0
+        ],
+        "tpr": [
+            0.0,
+            0.4,
+            0.4,
+            0.4,
+            0.6,
+            0.8,
+            0.8,
+            0.8,
+            0.8,
+            1.0
+        ],
+        "thresholds": [
+            Infinity,
+            0.37,
+            0.25,
+            0.06,
+            0.05,
+            0.04,
+            0.03,
+            0.02,
+            0.01,
+            0.0
+        ],
+        "roc_auc": 0.643
+    },
+    "pr_curve": {
+        "precision": [
+            0.00877,
+            0.00798,
+            0.00851,
+            0.00871,
+            0.00899,
+            0.02326,
+            0.02128,
+            0.02273,
+            0.02299,
+            1.0
+        ],
+        "recall": [
+            1.0,
+            0.8,
+            0.8,
+            0.8,
+            0.8,
+            0.6,
+            0.4,
+            0.4,
+            0.4,
+            0.0
+        ],
+        "thresholds": [
+            0.0,
+            0.01,
+            0.02,
+            0.03,
+            0.04,
+            0.05,
+            0.06,
+            0.25,
+            0.37
+        ],
+        "average_precision": 0.0174,
+        "baseline_prevalence": 0.0088
+    },
+    "scientific_limitations": {
+        "imbalance_artifact": "The 99.12% accuracy is an artifact of the 99.12% majority negative class. The model predicted 0 exoplanets, failing to discover any of the 5 confirmed exoplanets.",
+        "feature_mismatch": "exoTest.csv cadences are zero-centered difference flux, whereas the saved model was trained on relative normalized flux (~1.0).",
+        "retraining_requirement": "For genuine exoplanet candidate discovery, the model must be retrained with calibrated class weights on standardized multi-sector physical feature vectors."
+    }
+}

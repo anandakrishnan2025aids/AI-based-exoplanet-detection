@@ -1,0 +1,15 @@
+{
+    "python.defaultInterpreterPath": "C:\\Users\\anand\\anaconda3\\envs\\exoplnt_dl\\python.exe",
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}/ExoMiner",
+        "${workspaceFolder}/ExoMiner/exominer_pipeline"
+    ],
+    "python.analysis.diagnosticSeverityOverrides": {
+        "reportMissingImports": "none"
+    },
+    "code-runner.runInTerminal": true,
+    "code-runner.clearPreviousOutput": true,
+    "code-runner.executorMap": {
+        "python": "python -u"
+    }
+}

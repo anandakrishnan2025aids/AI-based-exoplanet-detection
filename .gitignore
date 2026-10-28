@@ -1,0 +1,55 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# C extensions & OS files
+*.obj
+*.o
+*.a
+*.lib
+*.dll
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local backups & Scratch
+.backup_task6/
+**/.backup_task6/
+*.backup
+*.bak
+.git_nasa_backup/
+**/.git_nasa_backup/
+
+# Datasets & Large data (>25MB)
+data/training/*.csv
+**/data/training/*.csv
+*.csv.gz
+*.tar.gz
+*.zip
+
+# Logs
+*.log
+
+# IDEs and Editors
+.idea/
+*.swp
+*.swo
+*~
+
+# Streamlit secrets
+.streamlit/secrets.toml

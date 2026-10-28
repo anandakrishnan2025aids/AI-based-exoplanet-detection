@@ -1,0 +1,70 @@
+rank: null
+rnd_seed: 2  # random seed used to select the validation fold in each CV iteration
+paths:
+  # experiment directory; results are saved here
+  experiment_root_dir: null
+  # YAML file containing a list of CV iterations, where each CV iteration is a dictionary with the TFRecord filepaths
+  # for each training, validation, and test set folds combination (i.e., {'train': ['/path/to/train_shard-xxxx', ...],
+  # 'val': ['/path/to/val_shard-xxxx', ...], 'test': ['/path/to/test_shard-xxxx']}
+  cv_folds: null
+  # path to root directory with ensemble models created in a CV experiment
+  models_cv_root_dir: null
+  # potentially remove this since it is not used and it is only useful to track the model config yaml file
+  model_config_fp: /u/msaragoc/work_dir/Kepler-TESS_exoplanet/codebase/models/exominer_new.yaml
+
+data_fields: # scalar data from TFRecords to add to ranking table
+  uid: 'string'
+  target_id: 'int_scalar'
+  tce_plnt_num: 'int_scalar'
+  label: 'string'
+  tce_period: 'float_scalar'
+  tce_duration: 'float_scalar'
+  tce_time0bk: 'float_scalar'
+  tce_depth: 'float_scalar'
+  ruwe: 'float_scalar'
+  tce_prad: 'float_scalar'
+  tce_max_mult_ev: 'float_scalar'
+  tce_model_snr: 'float_scalar'
+  obs_type: 'string'
+
+label_field_name: label  # name of the label field in the TFRecord that is going to be used as the label
+
+inference:
+  batch_size: 32
+
+callbacks: null
+
+label_map:  # maps label to a label id
+#  # Kepler
+#  PC: 1
+#  AFP: 0
+#  NTP: 0
+  # TESS
+  KP: 1
+  CP: 1
+  FP: 0
+#  FA: 0
+  EB: 0
+#  B: 0
+#  J: 0
+  FP: 0
+  # NEB: 0
+  # NPC: 0
+  BD: 0
+  NTP: 0
+  UNK: 0
+  # Kepler Sim
+#  INJ1: 1
+#  INJ2: 0
+#  INJ3: 0
+#  SCR1: 0
+#  SCR2: 0
+#  INV: 0
+
+datasets:
+  - predict
+
+plot_model: true
+write_model_summary: true
+verbose_model: 1  # model.predict()
+verbose: true  # general
